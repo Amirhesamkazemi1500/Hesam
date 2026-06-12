@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>بازی دوز 👾</title>
+<style>
+  :root {
+    --primary: #2196F3;
+    --secondary: #FF4081;
+    --bg-dark1: #1e1e1e;
+    --bg-dark2: #2d2d2d;
+  }
+
+  body {
+    background: linear-gradient(135deg, var(--bg-dark1), var(--bg-dark2));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    color: white;
+    user-select: none;
+  }
+
+  h1 {
+    margin-top: 20px;
+    font-size: 2.5rem;
+    text-shadow: 0 0 8px var(--primary);
+  }
+
+  #status {
+    margin: 15px 0;
+    font-size: 1.3rem;
+    font-weight: 600;
+    min-height: 30px;
+  }
+
+  .board {
+    display: grid;
+    grid-template-columns: repeat(3, 80px);
+    gap: 10px;
+    margin: 20px auto;
+  }
+
+  .cell {
+    width: 80px;
+    height: 80px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: inset 0 0 5px #000000aa;
+  }
+
+  .cell:hover:not(.disabled) {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.05);
+  }
+
+  .cell.disabled {
+    cursor: default;
+    opacity: 0.7;
+  }
+
+  .cell.x {
+    color: var(--primary);
+    text-shadow: 0 0 10px var(--primary);
+  }
+
+  .cell.o {
+    color: var(--secondary);
+    text-shadow: 0 0 10px var(--secondary);
+  }
+
+  button {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 25px;
+    cursor: pointer;
+    margin: 20px;
+    font-size: 16px;
+    box-shadow: 0 0 10px var(--primary);
+    transition: background-color 0.3s ease;
+  }
+
+  button:hover {
+    background: #1976d2;
+  }
+
+  @media (max-width: 480px) {
+    .board {
+      grid-template-columns: repeat(3, 70px);
+      gap: 8px;
+    }
+    .cell {
+      width: 70px;
+      height: 70px;
+      font-size: 35px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<h1>بازی دوز 👾</h1>
+<div id="status">نوبت بازیکن X</div>
+
+<div class="board" role="grid" aria-label="صفحه بازی دوز">
+  <!-- خانه‌ها با جاوااسکریپت ساخته می‌شوند -->
+</div>
+
+<button id="resetBtn" aria-label="شروع مجدد بازی">شروع مجدد</button>
+
+<script>
+  const boardElement = document.querySelector('.board');
+  const statusElement = document.getElementById('status');
+  const resetBtn = document.getElementById('resetBtn');
+
+  let board = [
+    ['', '', ''],
+    ['', '', ''],
+    ['', '', '']
+  ];
+  let currentPlayer = 'X';
+  let gameOver = false;
+  let winningCells = [];
+
+  function createBoard() {
+    boardElement.innerHTML = '';
+    for(let i=0; i<3; i++) {
+      for(let j=0; j<3; j++) {
+        const cell = document.createElement('div');
+        cell.classList.add('cell');
+        cell.setAttribute('data-row', i);
+        cell.setAttribute('data-col', j);
+        cell.setAttribute('role', 'button');
+        cell.setAttribute('tabindex', '0');
+        cell.setAttribute('aria-label', `خانه ردیف ${i+1} ستون ${j+1}`);
+        cell.addEventListener('click', onCellClick);
+        cell.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onCellClick.call(cell);
+          }
+        });
+        boardElement.appendChild(cell);
+      }
+    }
+  }
+
+  function onCellClick() {
+    if (gameOver) return;
+
+    const row = +this.getAttribute('data-row');
+    const col = +this.getAttribute('data-col');
+
+    if (board[row][col] !== '') return;
+
+    board[row][col] = currentPlayer;
+    updateBoard();
+
+    if (checkWin(currentPlayer)) {
+      gameOver = true;
+      statusElement.textContent = `🎉 بازیکن ${currentPlayer} پیروز شد!`;
+      highlightWinningCells();
+      disableBoard();
+    } else if (checkTie()) {
+      gameOver = true;
+      statusElement.textContent = `🤝 بازی مساوی شد!`;
+      disableBoard();
+    } else {
+      currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+      statusElement.textContent = `نوبت بازیکن ${currentPlayer}`;
+    }
+  }
+
+  function updateBoard() {
+    const cells = boardElement.querySelectorAll('.cell');
+    cells.forEach(cell => {
+      const r = +cell.getAttribute('data-row');
+      const c = +cell.getAttribute('data-col');
+      cell.textContent = board[r][c];
+      cell.classList.remove('x', 'o', 'disabled', 'highlight');
+      if (board[r][c] === 'X') cell.classList.add('x', 'disabled');
+      else if (board[r][c] === 'O') cell.classList.add('o', 'disabled');
+    });
+  }
+
+  function checkWin(player) {
+    // ردیف‌ها
+    for (let i=0; i<3; i++) {
+      if (board[i][0] === player && board[i][1] === player && board[i][2] === player) {
+        winningCells = [[i,0],[i,1],[i,2]];
+        return true;
+      }
+    }
+    // ستون‌ها
+    for (let j=0; j<3; j++) {
+      if (board[0][j] === player && board[1][j] === player && board[2][j] === player) {
+        winningCells = [[0,j],[1,j],[2,j]];
+        return true;
+      }
+    }
+    // قطرها
+    if (board[0][0] === player && board[1][1] === player && board[2][2] === player) {
+      winningCells = [[0,0],[1,1],[2,2]];
+      return true;
+    }
+    if (board[0][2] === player && board[1][1] === player && board[2][0] === player) {
+      winningCells = [[0,2],[1,1],[2,0]];
+      return true;
+    }
+    return false;
+  }
+
+  function checkTie() {
+    return board.flat().every(cell => cell !== '');
+  }
+
+  function highlightWinningCells() {
+    winningCells.forEach(([r,c]) => {
+      const cell = boardElement.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
+      if(cell) {
+        cell.classList.add('highlight');
+        cell.style.boxShadow = `0 0 15px 5px var(--primary)`; // هایلایت سبز زیبا
+      }
+    });
+  }
+
+  function disableBoard() {
+    const cells = boardElement.querySelectorAll('.cell');
+    cells.forEach(cell => cell.classList.add('disabled'));
+  }
+
+  resetBtn.addEventListener('click', () => {
+    board = [
+      ['', '', ''],
+      ['', '', ''],
+      ['', '', '']
+    ];
+    currentPlayer = 'X';
+    gameOver = false;
+    winningCells = [];
+    statusElement.textContent = `نوبت بازیکن ${currentPlayer}`;
+    createBoard();
+  });
+
+  // اجرای اولیه
+  createBoard();
+</script>
+
+</body>
+</html>
